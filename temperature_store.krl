@@ -12,6 +12,10 @@ ruleset temperature_store {
 
     rule collect_temperatures {
         select when wovyn new_temperature_reading
+        pre {
+            collected_temperature = event:attrs{"temperature"}
+            temperature_timestamp = event:attrs{"timestamp"}
+        }
         always {
             ent:temperatures := ent:temperatures.defaultsTo({}).put(temperature_timestamp, collected_temperature)
         }
@@ -19,6 +23,10 @@ ruleset temperature_store {
 
     rule collect_threshold_violation  {
         select when wovyn threshold_violation
+        pre {
+            violation_temperature = event:attrs{"temperature"}
+            violation_timestamp = event:attrs{"timestamp"}
+        }
         always {
             ent:violations := ent:violations.defaultsTo({}).put(violation_timestamp, violation_temperature)
         }
