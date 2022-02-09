@@ -13,12 +13,12 @@ ruleset wovyn_base {
     }
   
     rule process_heartbeat {
-      select when wovyn heartbeat where event:attr("genericThing")
+      select when wovyn heartbeat where event:attr{"genericThing"}
       pre {
-        emitterGUID = event:attr("emitterGUID")
-        genericThing = event:attr("genericThing")
-        specificThing = event:attr("specificThing")
-        property = event:attr("property")
+        emitterGUID = event:attr{"emitterGUID"}
+        genericThing = event:attr{"genericThing"}
+        specificThing = event:attr{"specificThing"}
+        property = event:attr{"property"}
       }
 
       send_directive("Got Heartbeat, It is sorry, Please forgive it.", {"emitterGUID":emitterGUID, "genericThing":genericThing, "specificThing":specificThing, "property":property})
@@ -31,16 +31,16 @@ ruleset wovyn_base {
     }
   
     rule find_high_temps {
-      select when wovyn new_temperature_reading where event:attr("temperature")[0]{"temperatureF"} > temperature_threshold
+      select when wovyn new_temperature_reading where event:attr{"temperature"}[0]{"temperatureF"} > temperature_threshold
       pre {
-        temp = event:attr("temperature")[0]{"temperatureF"}
+        temp = event:attr{"temperature"}[0]{"temperatureF"}
       }
       
       send_directive("Oh no, it's hot, please forgive.", {"temperature": temp})
       always {
         raise wovyn event "threshold_violation" attributes {
           "temperature": temp,
-          "timestamp": event:attr("timestamp")
+          "timestamp": event:attr{"timestamp"}
         }
       }
     }
@@ -48,8 +48,8 @@ ruleset wovyn_base {
     rule threshold_notification {
       select when wovyn threshold_violation
       pre {
-        temp = event:attr("temperature")
-        timestamp = event:attr("timestamp")
+        temp = event:attr{"temperature"}
+        timestamp = event:attr{"timestamp"}
       }
       twilio_back:send_sms(to_number, from_number, "Everyone makes mistakes. Forgive this Temperature: " + temp + " Timestamp: " + timestamp)
     }
