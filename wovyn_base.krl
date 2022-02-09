@@ -4,7 +4,6 @@ ruleset wovyn_base {
       with
         account_sid = meta:rulesetConfig{"account_sid"}
         auth_token = meta:rulesetConfig{"auth_token"}
-        service_sid = meta:rulesetConfig{"service_sid"}
     }
     
     global {
