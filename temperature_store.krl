@@ -33,7 +33,7 @@ ruleset temperature_store {
     }
 
     rule clear_temperatures {
-        select when sensor reading_reset
+        select when sensor reset
         always {
             clear ent:temperatures
             clear ent:violations
