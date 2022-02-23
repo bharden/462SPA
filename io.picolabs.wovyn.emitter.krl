@@ -142,4 +142,3 @@ ruleset io.picolabs.wovyn.emitter {
     }
   
   }
-io.picolabs.wovyn.emitter.krl
