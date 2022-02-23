@@ -1,8 +1,8 @@
 ruleset manage_sensors {
     meta {
         use module io.picolabs.wrangler alias wrangler
-        provides sensors, get_number, get_threshold, get_all_temperatures
-        shares   sensors, get_number, get_threshold, get_all_temperatures
+        provides sensor_map, get_number, get_threshold, get_all_temperatures
+        shares   sensor_map, get_number, get_threshold, get_all_temperatures
     }
     
     global {
