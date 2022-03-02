@@ -2,6 +2,7 @@ ruleset wovyn_base {
     meta {
       use module twilio_back
       use module sensor_profile
+      use module io.picolabs.subscription alias subscription
       with
         account_sid = meta:rulesetConfig{"account_sid"}
         auth_token = meta:rulesetConfig{"auth_token"}
@@ -45,12 +46,29 @@ ruleset wovyn_base {
       }
     }
   
+    // rule threshold_notification {
+    //   select when wovyn threshold_violation
+    //   pre {
+    //     temp = event:attrs{"temperature"}
+    //     timestamp = event:attrs{"timestamp"}
+    //   }
+    //   twilio_back:send_sms(to_number, from_number, "Everyone makes mistakes. Forgive this Temperature: " + temp + " Timestamp: " + timestamp)
+    // }
+
+    //subs
     rule threshold_notification {
       select when wovyn threshold_violation
-      pre {
-        temp = event:attrs{"temperature"}
-        timestamp = event:attrs{"timestamp"}
-      }
-      twilio_back:send_sms(to_number, from_number, "Everyone makes mistakes. Forgive this Temperature: " + temp + " Timestamp: " + timestamp)
+      foreach subscription:established("Tx_role", "sensor_manager") setting(subscription)
+      event:send(
+          {
+              "eci": subscription{"Tx"},
+              "eid": "threshold-violation",
+              "domain": "threshold",
+              "type": "violation",
+              "temperature": event:attrs{"temperatureF"},
+              "to_number": "+18015508518"
+          }
+      )
     }
+    //subs
   }
