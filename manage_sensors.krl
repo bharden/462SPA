@@ -1,6 +1,7 @@
 ruleset manage_sensors {
     meta {
         use module io.picolabs.wrangler alias wrangler
+        use module io.picolabs.subscription alias subscription
         provides sensor_map, get_number, get_threshold, get_all_temperatures
         shares   sensor_map, get_number, get_threshold, get_all_temperatures
     }
@@ -19,11 +20,11 @@ ruleset manage_sensors {
             { "url": "file:///Users/benharden/CS462/lab4/io.picolabs.wovyn.emitter.krl", "config": { "account_sid": meta:rulesetConfig{"account_sid"}, "auth_token": meta:rulesetConfig{"auth_token"}, } } 
         ]
         get_all_temperatures = function() {
-            ent:sensors.map(function(name, i){
-               eci = name{"eci"}
-               wrangler:picoQuery(eci,"temperature_store", "temperatures");
-            })
-         }
+            subscription:established()
+            .filter(function(x){x{"Tx_role"}=="sensor"})
+            .map(function(x){ wrangler:picoQuery(x{"Tx"}, "temperature_store", "temperatures", {})})
+            .values()
+        }
     }
 
     rule storage_update {
@@ -81,6 +82,50 @@ ruleset manage_sensors {
             }
     }
 
+    //subs
+    rule subscribe {
+        select when wrangler new_child_created
+        pre {
+            eci = event:attrs{"eci"}
+            wellKnown_eci = subscription:wellKnown_Rx(){"id"}
+        }
+        every {
+            send_directive("adding sensor subscription", event:attrs)
+            event:send(
+            {
+                "eci": eci,
+                "eid": "subscribe",
+                "domain": "wrangler", 
+                "type": "subscription",
+                "attrs": {
+                    "wellKnown_Tx": wellKnown_eci,
+                    "name": "Sensor Manager",
+                    "Rx_role": "sensor",
+                    "Tx_role": "sensor_manager"
+                }
+            }
+            )
+        }
+    }
+
+    rule auto_subscribe {
+        select when wrangler inbound_pending_subscription_added
+        pre {
+            Rx_role = event:attrs{"Rx_role"}
+            Tx_role = event:attrs{"Tx_role"}
+        }
+        if Rx_role=="sensor_manager" && Tx_role=="sensor" then noop()
+        fired {
+            raise wrangler event "pending_subscription_approval"
+            attributes event:attrs
+        } 
+        else {
+            raise wrangler event "inbound_rejection"
+            attributes event:attrs
+        }
+    }
+    //subs
+
     rule update_child_profile {
         select when sensor finished_installing
         pre {
@@ -89,5 +134,7 @@ ruleset manage_sensors {
         }
         event:send({"eci":eci, "domain":"sensor", "type":"profile_updated", "attrs":{"name": nuSensor, "threshold": default_threshold, "phone_number": to_number}})
     }
+
+
 
 }
