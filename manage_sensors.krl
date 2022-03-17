@@ -2,8 +2,8 @@ ruleset manage_sensors {
     meta {
         use module io.picolabs.wrangler alias wrangler
         use module io.picolabs.subscription alias subscription
-        provides sensor_map, get_number, get_threshold, get_all_temperatures
-        shares   sensor_map, get_number, get_threshold, get_all_temperatures
+        provides sensor_map, get_number, get_threshold, get_all_temperatures, get_reports, get_current, get_cid
+        shares   sensor_map, get_number, get_threshold, get_all_temperatures, get_reports, get_current, get_cid
     }
     
     global {
@@ -24,6 +24,30 @@ ruleset manage_sensors {
             .filter(function(x){x{"Tx_role"}=="sensor"})
             .map(function(x){ wrangler:picoQuery(x{"Tx"}, "temperature_store", "temperatures", {})})
             .values()
+        }
+
+        //Lab 7
+        get_current = function() { ent:current.defaultsTo(0)  }
+        get_cid     = function() { ent:cid.defaultsTo(0)      }
+        get_reports = function() { ent:reports.filter(function(v,k){k >= ent:current - 5}) }
+    }
+
+    //Lab 7
+    rule intialization {
+        select when wrangler ruleset_installed where event:attrs{"rids"} >< meta:rid
+        fired {
+            ent:reports := {}
+           ent:cid := 0
+           ent:current := 0
+        }
+    }
+
+    rule reset_reports {
+        select when sensor reset_reports
+        always {
+            ent:reports := {}
+           ent:cid := 0
+           ent:current := 0
         }
     }
 
@@ -136,5 +160,47 @@ ruleset manage_sensors {
     }
 
 
+    //LAB 7
+    rule scatter_reports {
+        select when sensor scatter_report
+        foreach subscription:established() setting(sub,i)
+        if sub{"Tx_role"} == "sensor" then 
+            event:send({
+                "eci": sub{"Tx"}, 
+                "domain":"sensor",
+                "name":"report",
+                "attrs": {
+                    "cid": ent:cid
+                }
+            })
+        always {
+            ent:count := ent:count.defaultsTo(0) + 1 if sub{"Tx_role"} == "sensor"
+            ent:reports{ent:cid} := {
+                "responding": 0,
+                "temperature_sensors": ent:count,
+                "temperatures": []
+            } 
+            if sub{"Tx_role"} == "sensor"
+            ent:cid := ent:cid + 1 on final
+            ent:count := 0 on final
+            ent:current := ent:current + 1 on final
+        }
+    }
+
+    rule gather_reports {
+        select when sensor return_report
+        pre {
+            eci = meta:eci
+            cid = event:attrs{"cid"}
+            temp = event:attrs{"temp"}.values()    
+        }
+        always {
+            ent:reports{[cid, "temperatures"]} := ent:reports{[cid, "temperatures"]}.append({
+                "eci": eci,
+                "temp": temp[temp.length() - 1]
+            })
+            ent:reports{[cid, "responding"]} := ent:reports{[cid, "responding"]}+1
+        }
+    }
 
 }
