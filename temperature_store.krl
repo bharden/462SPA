@@ -1,10 +1,13 @@
 ruleset temperature_store {
     meta {
-        provides temperatures, threshold_violations, inrange_temperatures
-        shares temperatures, threshold_violations, inrange_temperatures
+        use module io.picolabs.subscription alias subscription
+        provides temperatures, threshold_violations, inrange_temperatures, get_temps, get_temps_zero
+        shares temperatures, threshold_violations, inrange_temperatures, get_temps, get_temps_zero
     }
 
     global {
+        get_temps = function() { [ent:temperatures] };
+        get_temps_zero = function() { get_temps()[0] };
         temperatures = function() { ent:temperatures.defaultsTo({}) };
         threshold_violations = function() { ent:violations.defaultsTo({}) };
         inrange_temperatures = function() { temperatures().filter(function(v,k){ not (threshold_violations() >< k) }) }
@@ -38,5 +41,23 @@ ruleset temperature_store {
             clear ent:temperatures
             clear ent:violations
         }
+    }
+    
+    //Lab 7
+    rule report {
+        select when sensor report
+        pre {
+            cid = event:attrs{"cid"}
+            temp = temperatures();
+        }
+        event:send({
+            "eci": subscription:established().filter(function(x){x{"Rx"} == meta:eci}).head(){"Tx"},
+            "domain":"sensor",
+            "name":"return_report",
+            "attrs": {
+              "cid": cid,
+              "temp": temp
+            }
+        })
     }
 }
