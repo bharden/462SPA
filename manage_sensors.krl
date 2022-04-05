@@ -17,7 +17,8 @@ ruleset manage_sensors {
             { "url": "file:///Users/benharden/CS462/lab4/temperature_store.krl", "config": {} }, 
             { "url": "file:///Users/benharden/CS462/lab4/twilio_back.krl", "config": {} },
             { "url": "file:///Users/benharden/CS462/lab4/wovyn_base.krl", "config": {} }, 
-            { "url": "file:///Users/benharden/CS462/lab4/io.picolabs.wovyn.emitter.krl", "config": { "account_sid": meta:rulesetConfig{"account_sid"}, "auth_token": meta:rulesetConfig{"auth_token"}, } } 
+            { "url": "file:///Users/benharden/CS462/lab4/io.picolabs.wovyn.emitter.krl", "config": { "account_sid": meta:rulesetConfig{"account_sid"}, "auth_token": meta:rulesetConfig{"auth_token"}, } },
+            { "url": "file:///Users/benharden/CS462/lab8/gossip.krl", "config": {} }
         ]
         get_all_temperatures = function() {
             subscription:established()
@@ -202,5 +203,28 @@ ruleset manage_sensors {
             ent:reports{[cid, "responding"]} := ent:reports{[cid, "responding"]}+1
         }
     }
+
+    //Lab 8
+    rule reset_sensor_gossip_state {
+        select when sensor reset_gossip_state
+        foreach subs:established().filter(function(x){x{"Tx_role"}=="sensor"}) setting(sensor_sub)
+          event:send(
+            {
+              "eci": sensor_sub{"Tx"},
+              "domain": "gossip", "type": "reset_state",
+            }
+          )
+      }
+      rule reset_sensor_gossip_heartbeat {
+        select when sensor reset_gossip_heartbeat
+        foreach subs:established().filter(function(x){x{"Tx_role"}=="sensor"}) setting(sensor_sub)
+          event:send(
+            {
+              "eci": sensor_sub{"Tx"},
+              "domain": "gossip", "type": "heartbeat",
+            }
+          )
+      }
+
 
 }
