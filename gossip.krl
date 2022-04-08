@@ -2,7 +2,7 @@ ruleset gossip {
     meta {
       use module io.picolabs.subscription alias subs
       use module temperature_store alias store
-      shares heartbeat_period, sequence_number, temp_logs, seen_state, peer_seen_states, latest_temps, getPeer, prepareMessage
+      shares heartbeat_period, sequence_number, temp_logs, seen_state, peer_seen_states, latest_temps, getPeer, prepareMessage, totalCurrentViolations
     }
   
     global {
@@ -13,23 +13,28 @@ ruleset gossip {
       heartbeat_period = function() { ent:heartbeat_period }
       sequence_number  = function() { ent:sequence_number.defaultsTo(0) }
       process          = function() { ent:process.defaultsTo("on") }
+      totalCurrentViolations = function() { ent:totalCurrentViolations.defaultsTo(0) }
+      resetCurrentViolations = function() { ent:totalCurrentViolations }
 
       temp_logs = function() {
         prevMessageID = meta:picoId + <<:#{ent:sequence_number - 1}>>
         prevMsg = ent:temp_logs{[meta:picoId, prevMessageID]}
         messageID = meta:picoId + <<:#{ent:sequence_number}>>
+        violations = store:threshold_violations().length() > 0 => 1 | -1
+
         msg = {
           "MessageID": messageID, 
           "SensorID": meta:picoId, 
           "temperature": store:temperatures().values().reverse().head().head()["temperatureF"], //make this all temps
-          "timestamp": store:temperatures().keys().reverse().head() //make this all timestamps
+          "timestamp": store:temperatures().keys().reverse().head(), //make this all timestamps
+          "thresholdViolation": violations //Lab9
         } 
-  
+        
         store:temperatures().isnull() || 
         store:temperatures().length() == 0 || 
         prevMsg{"temperature"} == msg{"temperature"} && prevMsg{"timestamp"} == msg{"timestamp"} 
-        => ent:temp_logs.defaultsTo({}) | 
-        ent:temp_logs.defaultsTo({}).put([meta:picoId, messageID], msg)
+        => ent:temp_logs.defaultsTo({}) | ( ent:temp_logs.defaultsTo({}).put([meta:picoId, messageID], msg) )
+        
       }
   
       seen_state = function() {
@@ -162,6 +167,7 @@ ruleset gossip {
       if ent:process == "on" then noop()
       fired {
         ent:temp_logs{[origin, messageID]} := msg
+        ent:totalCurrentViolations := msg{"thresholdViolation"} + ent:totalCurrentViolations.defaultsTo(0)
       }
     }
   
